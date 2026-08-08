@@ -1,127 +1,82 @@
 const express = require("express");
+const app = express();
+const port = 3000;
 const swaggerUi = require("swagger-ui-express");
 const openapi = require("./openapi.json");
 
-const app = express();
-const port = process.env.PORT || 3000;
-
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openapi));
+
 app.use(express.json());
 
-let tasks = [
+const tasks = [
   { id: 1, title: "Buy groceries", done: false },
   { id: 2, title: "Walk the dog", done: true },
   { id: 3, title: "Read a book", done: false },
 ];
-
-const seedTasks = () => [
-  { id: 1, title: "Buy groceries", done: false },
-  { id: 2, title: "Walk the dog", done: true },
-  { id: 3, title: "Read a book", done: false },
-];
-
 app.get("/", (req, res) => {
-  res.json({ name: "Task API", version: "1.0", endpoints: ["/tasks", "/health", "/stats"] });
+  res.send("Hello server!");
 });
+
+app.get("/", (req, res) =>
+  res.json({ name: "Task API", version: "1.0", endpoints: ["/tasks"] }),
+);
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
+// stage 2
 app.get("/tasks", (req, res) => {
-  const { done, search } = req.query;
-  let filteredTasks = [...tasks];
-
-  if (done !== undefined) {
-    const parsedDone = done === "true";
-    filteredTasks = filteredTasks.filter((task) => task.done === parsedDone);
-  }
-
-  if (search) {
-    const query = search.toString().toLowerCase();
-    filteredTasks = filteredTasks.filter((task) => task.title.toLowerCase().includes(query));
-  }
-
-  res.json(filteredTasks);
+  res.json(tasks);
 });
 
 app.get("/tasks/:id", (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const task = tasks.find((t) => t.id === id);
+  const id = parseInt(req.params.id);
 
+  const task = tasks.find((t) => t.id === id);
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
   }
-
   res.json(task);
 });
 
+//stage 3
 app.post("/tasks", (req, res) => {
   const { title } = req.body;
-  if (typeof title !== "string" || title.trim() === "") {
-    return res.status(400).json({ error: "title is required and cannot be empty" });
+  if (!title) {
+    return res.status(400).json({ error: "Title is required" });
   }
 
-  const newTask = { id: Date.now(), title: title.trim(), done: false };
+  const newTask = { id: 4, title: title, done: false };
   tasks.push(newTask);
   res.status(201).json(newTask);
 });
 
+// stage 4
 app.put("/tasks/:id", (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id);
   const task = tasks.find((t) => t.id === id);
-
   if (!task) {
     return res.status(404).json({ error: `Task ${id} not found` });
   }
-
   const { title, done } = req.body;
   if (title === undefined && done === undefined) {
-    return res.status(400).json({ error: "request body must include title and/or done" });
+    return res.status(400).json({ error: "At least one field (title or done) is required" });
   }
-
-  if (title !== undefined) {
-    if (typeof title !== "string" || title.trim() === "") {
-      return res.status(400).json({ error: "title cannot be empty" });
-    }
-    task.title = title.trim();
-  }
-
-  if (done !== undefined) {
-    if (typeof done !== "boolean") {
-      return res.status(400).json({ error: "done must be a boolean" });
-    }
-    task.done = done;
-  }
-
+  if (title !== undefined) task.title = title;
+  if (done !== undefined) task.done = done;
   res.json(task);
 });
 
 app.delete("/tasks/:id", (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(req.params.id);
   const taskIndex = tasks.findIndex((t) => t.id === id);
 
-  if (taskIndex === -1) {
+    if (taskIndex === -1) {
     return res.status(404).json({ error: `Task ${id} not found` });
   }
-
   tasks.splice(taskIndex, 1);
   res.status(204).send();
 });
 
-app.get("/stats", (req, res) => {
-  const total = tasks.length;
-  const done = tasks.filter((task) => task.done).length;
-  res.json({ total, done, open: total - done });
+app.listen(port, () => {
+  console.log(`CRUD API listening on port ${port}`);
 });
-
-app.post("/reset", (req, res) => {
-  tasks = seedTasks();
-  res.json(tasks);
-});
-
-if (require.main === module) {
-  app.listen(port, () => {
-    console.log(`CRUD API listening on port ${port}`);
-  });
-}
-
-module.exports = { app };
